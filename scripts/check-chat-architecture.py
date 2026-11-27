@@ -2401,7 +2401,7 @@ expect(
     "Login overlay has a bounded presentation lifetime and independent completion dismiss",
     'LoginProgressGeneration += 1' in login_progress
     and 'LoginProgressHardDeadline := A_TickCount + Max(60000, expectedMs)' in login_progress
-    and 'SetTimer(DismissCompletedLoginProgress.Bind(LoginProgressGeneration), -3100)' in login_progress
+    and 'SetTimer(DismissCompletedLoginProgress.Bind(LoginProgressGeneration), -4100)' in login_progress
     and 'if generation != LoginProgressGeneration || LoginProgressMode != "complete"' in login_progress
     and 'DismissGameLoginProgress()' in section_between(
         login_progress, "DismissCompletedLoginProgress(generation)", "\n}")
@@ -2417,7 +2417,7 @@ login_card_present = section_between(login_progress, "PresentGameLoginProgress(g
 login_card_position = section_between(login_progress, "PositionGameLoginProgress(cardHwnd,", "PresentGameLoginProgress(gameHwnd, layout)")
 expect(
     "Game login progress retains its normal DPI layout when it fits and follows the visible TES3MP client",
-    "Min(normalScale, area.Width / 960, area.Height / 112)" in login_card_fit
+    "Min(normalScale, area.Width / 960, area.Height / 132)" in login_card_fit
     and "Y: area.Y + area.Height - height - margin" in login_card_fit
     and 'WinGetClientPos(&x, &y, &width, &height, "ahk_id " hwnd)' in login_card_layout
     and 'DllCall("GetMonitorInfoW"' in login_card_layout
@@ -2438,6 +2438,17 @@ expect(
     and 'LoginProgressCompletion := CreateGameLoginProgressPicture(window, framePath' in login_progress
     and 'Login strip frame bitmap does not cover the planned window.' in launcher_smoke_tests
     and 'GameLoginProgressFill(index, stage, complete, elapsed, duration)' in login_progress
+    and 'visualStage := stage = 1 ? 1 : 2' in login_progress
+    and 'LoginProgressCloseAt := LoginProgressStageStarted + 4000' in login_progress
+    and 'return mode = "complete" && elapsed >= 2000' in login_progress
+    and 'fill = 100 ? 0x003B6437 : 0x0034618A' in login_progress
+    and 'GameLoginProgressCaption(index, row.Caption, stage, complete, elapsed)' in login_progress
+    and 'complete ? 100 : 0' in login_progress
+    and 'portrait := p(68)' in login_progress
+    and 'profileW := portrait + 3 * pad + nameW' in login_progress
+    and 'GameLoginProgressFontSize(18, layout.Scale)' in login_progress
+    and 'return ["Waiting For Game Client...", "Querying Character Data...", "Character Loading..."]' in login_progress
+    and 'LoginProgressRows.Length != 3' in launcher_smoke_tests
     and 'if complete || index < stage' in login_progress
     and 'return Min(95, Max(0, Floor(100 * elapsedMs / Max(1, durationMs))))' in login_progress
     and 'fillWidth := Round(width * fill / 100)' in login_progress

@@ -177,8 +177,8 @@ StopClient(*)
     Client.Phase := "stopped"
     if !TES3NPCrashRecovery.Count
         SetTimer(ClientTick, 0)
-    ; Saved LoadDelay may be only one second. Keep the already-completed
-    ; three-second visual alive when the successful manual watchdog ends.
+    ; Saved LoadDelay may be only one second. Keep the four-second visual
+    ; finishing sequence alive when the successful manual watchdog ends.
     keepProgress := Client.HasOwnProp("KeepLoginProgress") && Client.KeepLoginProgress
         && LoginProgressMode = "complete" && A_TickCount < LoginProgressCloseAt
     if !keepProgress

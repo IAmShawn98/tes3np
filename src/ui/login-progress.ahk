@@ -51,9 +51,11 @@ SetGameLoginProgressStage(stage)
     global LoginProgressHardDeadline, Client
     if LoginProgressMode != "login" || stage < 1 || stage > 4
         return
-    if LoginProgressStage != stage
+    ; Collapse all three credential-entry events into one visual section.
+    visualStage := stage = 1 ? 1 : 2
+    if LoginProgressStage != visualStage
     {
-        LoginProgressStage := stage
+        LoginProgressStage := visualStage
         LoginProgressStageStarted := A_TickCount
     }
     if stage = 1 && !LoginProgressHardDeadline
@@ -72,19 +74,20 @@ CompleteGameLoginProgress(name, pid, hwnd)
 {
     global LoginProgressMode, LoginProgressStage, LoginProgressName
     global LoginProgressPid, LoginProgressHwnd, LoginProgressCloseAt, AppConfig
-    global LoginProgressGeneration
+    global LoginProgressGeneration, LoginProgressStageStarted
     if LoginProgressMode != "login"
         return
     LoginProgressMode := "complete"
-    LoginProgressStage := 5
+    LoginProgressStage := 3
+    LoginProgressStageStarted := A_TickCount
     LoginProgressName := name
     LoginProgressPid := pid
     LoginProgressHwnd := hwnd
-    LoginProgressCloseAt := A_TickCount + 3000
-    ; Independently dismiss the native card after three seconds even if
-    ; the repainting timer is interrupted. The session token prevents an old
-    ; callback from closing a later character's login overlay.
-    SetTimer(DismissCompletedLoginProgress.Bind(LoginProgressGeneration), -3100)
+    ; Two seconds of character-loading fill, then two seconds of green
+    ; completion. Neither interval delays the actual client watchdog.
+    LoginProgressCloseAt := LoginProgressStageStarted + 4000
+    ; Generation-safe independent dismissal if repainting is interrupted.
+    SetTimer(DismissCompletedLoginProgress.Bind(LoginProgressGeneration), -4100)
     SetTimer(UpdateGameLoginProgress, AppConfig.TooltipMs)
     UpdateGameLoginProgress()
 }
@@ -172,9 +175,9 @@ FitGameLoginProgress(area, gameWindow, normalScale)
 {
     if area.Width < 1 || area.Height < 1
         return 0
-    scale := Min(normalScale, area.Width / 960, area.Height / 112)
+    scale := Min(normalScale, area.Width / 960, area.Height / 132)
     margin := Max(0, Round(8 * scale))
-    width := area.Width - 2 * margin, height := Round(92 * scale)
+    width := area.Width - 2 * margin, height := Round(112 * scale)
     if width < 1 || height < 1 || height + margin > area.Height
         return 0
     return {Scale: scale, Width: width, Height: height,
@@ -304,26 +307,27 @@ MeasureGameLoginProgressPlan(scale, name, width)
     {
         sample := panel.Add("Text", "x0 y0 w1 h1", "")
         rim := p(15), divider := p(2), pad := p(5)
-        portrait := p(48)
+        portrait := p(68)
         SetAccessibleTextFont(sample, "s" GameLoginProgressFontSize(24, scale) " Bold", "Segoe UI Symbol")
         check := MeasureAccessibleSingleLineText(sample, "✔")
         finishW := Max(p(54), check.Width + 2 * pad)
-        profileW := Max(p(160), Round(width * 0.19), portrait + 3 * pad + p(48))
-        stageW := Floor((width - 2 * rim - 5 * divider - profileW - finishW) / 4)
+        SetAccessibleTextFont(sample, "s" GameLoginProgressFontSize(18, scale) " Bold", LauncherThemeFont())
+        nameExtent := MeasureAccessibleSingleLineText(sample, name)
+        nameW := Max(p(48), Min(p(142), nameExtent.Width + p(6)))
+        profileW := portrait + 3 * pad + nameW
+        stageW := Floor((width - 2 * rim - 4 * divider - profileW - finishW) / 3)
         if stageW <= 2 * pad || profileW <= portrait + 3 * pad
             return 0
-        nameW := profileW - portrait - 3 * pad
-        SetAccessibleTextFont(sample, "s" GameLoginProgressFontSize(13, scale) " Bold", LauncherThemeFont())
         display := PrepareAccessibleBookName(sample, name, nameW)
         nameH := MeasureAccessibleWrappedText(sample, display, nameW) + p(4)
-        SetAccessibleTextFont(sample, "s" GameLoginProgressFontSize(11, scale) " Norm", LauncherThemeFont())
+        SetAccessibleTextFont(sample, "s" GameLoginProgressFontSize(15, scale) " Norm", LauncherThemeFont())
         labelH := 0
         for caption in GameLoginProgressCaptions()
             labelH := Max(labelH, MeasureAccessibleWrappedText(sample, caption, stageW - 2 * pad) + p(4))
-        bodyH := Max(p(62), portrait + 2 * pad, nameH + 2 * pad, labelH + 2 * pad, check.Height + 2 * pad)
+        bodyH := Max(p(82), portrait + 2 * pad, nameH + 2 * pad, labelH + 2 * pad, check.Height + 2 * pad)
         height := bodyH + 2 * rim
         cells := [], x := rim + profileW + divider
-        Loop 4
+        Loop 3
         {
             cells.Push({X: x, Y: rim, W: stageW, H: bodyH})
             x += stageW + divider
@@ -337,7 +341,7 @@ MeasureGameLoginProgressPlan(scale, name, width)
 
 GameLoginProgressCaptions()
 {
-    return ["Loading Name Screen...", "Typing Name...", "Loading Password Screen...", "Typing Password..."]
+    return ["Waiting For Game Client...", "Querying Character Data...", "Character Loading..."]
 }
 
 FitAccessibleGameLoginProgress(area, gameWindow, normalScale, name)
@@ -382,11 +386,25 @@ GameLoginProgressFill(index, stage, complete, elapsedMs, durationMs)
 GameLoginProgressDuration(stage)
 {
     global Client
+    if stage = 3
+        return 2000
     if stage = 1 && IsObject(Client) && Client.HasOwnProp("UsernameDelay")
         return Max(1, Round(Client.UsernameDelay * 1000))
-    if stage = 3 && IsObject(Client) && Client.HasOwnProp("PasswordDelay")
-        return Max(1, Round(Client.PasswordDelay * 1000))
+    if stage = 2 && IsObject(Client) && Client.HasOwnProp("PasswordDelay")
+        return Max(1, Round(Client.PasswordDelay * 1000) + 350)
     return 350
+}
+
+GameLoginProgressFinished(mode, elapsed)
+{
+    return mode = "complete" && elapsed >= 2000
+}
+
+GameLoginProgressCaption(index, caption, stage, complete, elapsed)
+{
+    if index != 1 || stage != 1 || complete
+        return caption
+    return "Waiting For Game Client" SubStr("...", 1, Mod(Floor(Max(0, elapsed) / 350), 4))
 }
 
 CreateGameLoginProgress(layout)
@@ -420,12 +438,12 @@ CreateGameLoginProgress(layout)
     try window.ProgressPortrait := window.Add("Picture", pictureOptions, portraitPath)
     catch Error as err
         throw Error("Login strip portrait control creation failed.", -1, Type(err))
-    SetAccessibleTextFont(window, "s" GameLoginProgressFontSize(13, layout.Scale) " Bold cF2E4D0", LauncherThemeFont())
+    SetAccessibleTextFont(window, "s" GameLoginProgressFontSize(18, layout.Scale) " Bold cF2E4D0", LauncherThemeFont())
     nameX := plan.Rim + plan.Portrait + 2 * plan.Pad
     nameY := plan.Rim + Floor((plan.BodyH - plan.NameH) / 2)
     LoginProgressCharacterName := window.Add("Text", "x" nameX " y" nameY " w" plan.NameW
         " h" plan.NameH " Center Background18120B", plan.NameDisplay)
-    SetAccessibleTextFont(window, "s" GameLoginProgressFontSize(11, layout.Scale) " Norm", LauncherThemeFont())
+    SetAccessibleTextFont(window, "s" GameLoginProgressFontSize(15, layout.Scale) " Norm", LauncherThemeFont())
     window.ProgressStageFont := window.Add("Text", "x0 y0 w1 h1 Hidden", "")
     SetAccessibleTextFont(window, "s" GameLoginProgressFontSize(24, layout.Scale) " Bold", "Segoe UI Symbol")
     window.ProgressCheckFont := window.Add("Text", "x0 y0 w1 h1 Hidden", "")
@@ -436,7 +454,7 @@ CreateGameLoginProgress(layout)
         window.Add("Text", "x" (cell.X - plan.Divider) " y" cell.Y " w" plan.Divider " h" cell.H " BackgroundB8975C", "")
         picture := CreateGameLoginProgressPicture(window, framePath, cell.X, cell.Y,
             cell.W, cell.H, "stage " index)
-        LoginProgressRows.Push({Picture: picture, Caption: caption, Cell: cell, Fill: -1})
+        LoginProgressRows.Push({Picture: picture, Caption: caption, Cell: cell, Fill: -1, RenderedCaption: ""})
     }
     window.Add("Text", "x" (plan.FinishX - plan.Divider) " y" plan.Rim " w" plan.Divider " h" plan.BodyH " BackgroundB8975C", "")
     LoginProgressCompletion := CreateGameLoginProgressPicture(window, framePath, plan.FinishX, plan.Rim,
@@ -481,7 +499,8 @@ PaintGameLoginProgressCell(picture, sample, caption, width, height, pad, fill, t
         if !oldBitmap || oldBitmap = -1
             throw Error("Login progress bitmap selection failed.")
         dark := DllCall("CreateSolidBrush", "UInt", 0x000B1218, "Ptr")
-        gold := DllCall("CreateSolidBrush", "UInt", 0x0034618A, "Ptr")
+        ; Active cells use the existing gold; completed cells become green.
+        gold := DllCall("CreateSolidBrush", "UInt", fill = 100 ? 0x003B6437 : 0x0034618A, "Ptr")
         if !dark || !gold
             throw Error("Login progress brush unavailable.")
         rect := Buffer(16, 0)
@@ -534,27 +553,29 @@ RenderGameLoginProgress()
 {
     global LoginProgressGui, LoginProgressRows, LoginProgressCompletion
     global LoginProgressMode, LoginProgressStage, LoginProgressStageStarted
-    complete := LoginProgressMode = "complete"
     stage := LoginProgressStage
     elapsed := Max(0, A_TickCount - LoginProgressStageStarted)
+    complete := GameLoginProgressFinished(LoginProgressMode, elapsed)
     duration := GameLoginProgressDuration(stage)
     plan := LoginProgressGui.ProgressPlan
     dirty := false
     for index, row in LoginProgressRows
     {
         fill := GameLoginProgressFill(index, stage, complete, elapsed, duration)
-        if row.Fill != fill
+        caption := GameLoginProgressCaption(index, row.Caption, stage, complete, elapsed)
+        if row.Fill != fill || row.RenderedCaption != caption
         {
-            PaintGameLoginProgressCell(row.Picture, LoginProgressGui.ProgressStageFont, row.Caption,
+            PaintGameLoginProgressCell(row.Picture, LoginProgressGui.ProgressStageFont, caption,
                 row.Cell.W, row.Cell.H, plan.Pad, fill, 0x00D0E4F2)
             row.Fill := fill
+            row.RenderedCaption := caption
             dirty := true
         }
     }
     if LoginProgressGui.ProgressComplete != complete
     {
         PaintGameLoginProgressCell(LoginProgressCompletion, LoginProgressGui.ProgressCheckFont, "✔",
-            plan.FinishW, plan.BodyH, plan.Pad, 0, complete ? 0x0079BDE1 : 0x0053606A)
+            plan.FinishW, plan.BodyH, plan.Pad, complete ? 100 : 0, complete ? 0x00D0E4F2 : 0x0053606A)
         LoginProgressGui.ProgressComplete := complete
         dirty := true
     }

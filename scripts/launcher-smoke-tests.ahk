@@ -174,10 +174,10 @@ CheckGameLoginProgressFit()
             || fitted.Width <= fitted.Height
             return false
     }
-    Loop 4
+    Loop 3
     {
         stage := A_Index
-        Loop 4
+        Loop 3
         {
             index := A_Index
             expected := index < stage ? 100 : index = stage ? 50 : 0
@@ -188,6 +188,12 @@ CheckGameLoginProgressFit()
         if GameLoginProgressFill(stage, stage, false, 2000, 1000) != 95
             return false
     }
+    if GameLoginProgressFinished("complete", 1999) || !GameLoginProgressFinished("complete", 2000)
+        || GameLoginProgressFinished("login", 9999)
+        || GameLoginProgressCaption(1, "Waiting For Game Client...", 1, false, 350) != "Waiting For Game Client."
+        || GameLoginProgressCaption(1, "Waiting For Game Client...", 2, false, 350) != "Waiting For Game Client..."
+        || GameLoginProgressCaption(2, "Querying Character Data...", 2, false, 350) != "Querying Character Data..."
+        return false
     return !IsObject(FitGameLoginProgress({X: 0, Y: 0, Width: 0, Height: 100}, game, 1))
 }
 
@@ -2267,11 +2273,13 @@ CheckMeasuredFooterVersionAndLoginCard()
                     if nx < px + pw || nh < MeasureAccessibleWrappedText(LoginProgressCharacterName, plan.NameDisplay, nw)
                         || ny < plan.Rim || ny + nh > plan.Rim + plan.BodyH
                         throw Error("Login profile clips or overlaps portrait.")
-                    LoginProgressStageStarted := A_TickCount
-                    for stage in [1, 2, 3, 4, 5]
+                    if LoginProgressRows.Length != 3 || pw != plan.Portrait
+                        throw Error("Login strip must contain three stages and the measured portrait.")
+                    for stage in [1, 2, 3, 4]
                     {
-                        LoginProgressStage := stage
-                        LoginProgressMode := stage = 5 ? "complete" : "login"
+                        LoginProgressStage := Min(stage, 3)
+                        LoginProgressMode := stage >= 3 ? "complete" : "login"
+                        LoginProgressStageStarted := A_TickCount - (stage = 4 ? 2000 : 0)
                         RenderGameLoginProgress()
                         previousRight := plan.Rim + plan.ProfileW
                         for index, row in LoginProgressRows
@@ -2286,7 +2294,7 @@ CheckMeasuredFooterVersionAndLoginCard()
                         }
                         LoginProgressCompletion.GetPos(&x, &y, &w, &h)
                         if x < previousRight + plan.Divider || x + w > layout.Width - plan.Rim
-                            || y != plan.Rim || h != plan.BodyH || LoginProgressGui.ProgressComplete != (stage = 5)
+                            || y != plan.Rim || h != plan.BodyH || LoginProgressGui.ProgressComplete != (stage = 4)
                             throw Error("Login completion cell clips or completes prematurely.")
                     }
                 }
