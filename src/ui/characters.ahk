@@ -82,7 +82,7 @@ PlanCharacterBookActionStack(footerY, footer)
 
 NormalCharacterAddY(count, limitReached)
 {
-    return count ? Max(164 + Min(count, 10) * 24 + 7, limitReached ? 462 : 0) : 164
+    return count ? Max(164 + Min(count, 10) * 24 + 7, limitReached ? 462 : 0) : 202
 }
 
 NormalCharacterAddWidth(count)
@@ -313,11 +313,13 @@ OpenCharacterPage(*)
     ; Retain a hidden heading for the character editor.
     LaunchSettingsHeading := CharacterPage.Add("Text", "x525 y45 w360 h30 Center BackgroundTrans Hidden", "")
     SetAccessibleTextFont(CharacterPage, "s12 Norm c241408", LauncherMorrowindFont)
-    AddCharacterButton := AddStyledButton(CharacterPage, 70, 164, 370, 30, "Add character", (*) => EditProfile(0))
+    AddCharacterButton := AddStyledButton(CharacterPage, 70, 202, 370, 30, "Add character", (*) => EditProfile(0))
     ; The approved copy fits in a compact description block. Do not leave
     ; a full extra paragraph of empty control space above the first row.
     SetAccessibleTextFont(CharacterPage, "s11 Norm c241408", LauncherMorrowindFont)
     CharacterDescription := CharacterPage.Add("Text", "x70 y80 w390 h81 BackgroundTrans", "")
+    CharacterPage.BookEmptyNotice := CharacterPage.Add("Text", "x70 y164 w370 h28 BackgroundTrans Hidden",
+        "No characters were found.")
     Loop 10
     {
         SetAccessibleTextFont(CharacterPage, "s12 Norm c241408", LauncherMorrowindFont)
@@ -426,13 +428,18 @@ RefreshProfiles()
             ? BookActionMetrics(DataTransferButton, "Export Character List", 370, 30) : importMetrics
         copyY := CharacterBookDescriptionY()
         CharacterDescription.Move(BookS(70), BookS(copyY), BookS(390), BookS(81))
+        emptyNotice := CharacterPage.BookEmptyNotice
+        emptyNotice.Visible := !Profiles.Length
         if !Profiles.Length
         {
+            scale := GetCharacterBookScale()
             captionHeight := Max(BookS(81),
                 MeasureAccessibleWrappedText(CharacterDescription, descriptionText,
                     Max(1, BookS(390) - BookS(4))) + BookS(4))
-            proposedAddY := Max(164, Ceil((BookS(copyY) + captionHeight
-                + BookS(3)) / GetCharacterBookScale()))
+            noticeHeight := Max(BookS(28), MeasureAccessibleWrappedText(
+                emptyNotice, emptyNotice.Text, Max(1, BookS(370) - BookS(4))) + BookS(4))
+            noticeY := Max(164, Ceil((BookS(copyY) + captionHeight + BookS(3)) / scale))
+            proposedAddY := Max(202, noticeY + Ceil(noticeHeight / scale) + 10)
             ; Keep Import above the original footer: no new scrolling, no
             ; bitmap stretching, and no partial move if text cannot fit.
             if proposedAddY + addMetrics.Height + 5 + importMetrics.Height <= 570
@@ -440,8 +447,11 @@ RefreshProfiles()
             {
                 CharacterDescription.Move(BookS(70), BookS(copyY),
                     BookS(390), captionHeight)
+                emptyNotice.Move(BookS(70), BookS(noticeY), BookS(370), noticeHeight)
                 actionY := proposedAddY
             }
+            else
+                emptyNotice.Move(BookS(70), BookS(164), BookS(370), BookS(28))
         }
         MoveMeasuredBookAction(AddCharacterButton, 70, actionY, addMetrics.Width, addMetrics.Height)
         transferY := Profiles.Length ? PlanCharacterBookActionStack(575, GetBookFooterMetrics(CharacterPage)).TransferY

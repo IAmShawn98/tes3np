@@ -189,7 +189,7 @@ ApplyV016CharacterLayout(*)
     MoveStyledButton(AddCharacterButton, 70,
         NormalCharacterAddY(Profiles.Length, Profiles.Length >= MaxCharacters),
         NormalCharacterAddWidth(Profiles.Length), 30)
-    MoveStyledButton(DataTransferButton, 70, Profiles.Length ? 540 : 199, 370, 30)
+    MoveStyledButton(DataTransferButton, 70, Profiles.Length ? 540 : 237, 370, 30)
     MoveStyledButton(WipeCharacterButton, 70, 575, 370, 30)
     V016CharacterLayoutApplied := true
 }

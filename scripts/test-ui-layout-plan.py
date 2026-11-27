@@ -57,6 +57,10 @@ class LayoutPlanningTest(unittest.TestCase):
                 self.assertEqual(rect["add-character"].width, 120 if count else 370)
                 if not count:
                     self.assertEqual(rect["add-character"].width, rect["import-data"].width)
+                    self.assertEqual(rect["character-empty-notice"].bottom + 10, rect["add-character"].y)
+                    self.assertEqual(rect["add-character"].bottom + 5, rect["import-data"].y)
+                else:
+                    self.assertNotIn("character-empty-notice", rect)
 
     def test_large_paragraph_rejects_unsafe_10_row_plan(self):
         result = layout.character_book_left_column(measured_paragraph_height=220)
@@ -90,8 +94,9 @@ class LayoutPlanningTest(unittest.TestCase):
         self.assertTrue(result.feasible)
         positions = {name: (top, bottom) for name, top, bottom in result.positions}
         self.assertEqual(positions["character-rows"][0], positions["character-rows"][1])
-        self.assertEqual(positions["add-character"], (164, 194))
-        self.assertEqual(positions["import-data"], (199, 229))
+        self.assertEqual(positions["character-empty-notice"], (164, 192))
+        self.assertEqual(positions["add-character"], (202, 232))
+        self.assertEqual(positions["import-data"], (237, 267))
         self.assertNotIn("export-character-list", positions)
         self.assertNotIn("reset-character-list", positions)
 
@@ -249,8 +254,9 @@ class LayoutPlanningTest(unittest.TestCase):
             70, 40, 23, 62, 1920, 1080, profile_count=0, macro_count=0)
         self.assertTrue(plan.feasible, plan.violations)
         positions = dict(layout.expand_book_control_positions(plan))
-        self.assertEqual(positions["add-character"], layout.Rect(70, 164, 370, 30))
-        self.assertEqual(positions["import-data"], layout.Rect(70, 199, 370, 30))
+        self.assertEqual(positions["character-empty-notice"], layout.Rect(70, 164, 370, 28))
+        self.assertEqual(positions["add-character"], layout.Rect(70, 202, 370, 30))
+        self.assertEqual(positions["import-data"], layout.Rect(70, 237, 370, 30))
         self.assertNotIn("footer-left", positions)
         self.assertNotIn("footer-right", positions)
         self.assertNotIn("character-1-name", positions)

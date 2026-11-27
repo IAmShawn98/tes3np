@@ -2234,7 +2234,7 @@ expect(
     and 'page.MacroPreviousPage.Enabled := plan.Number > 1' in macro_menu_ui
     and 'page.MacroNextPage.Enabled := plan.Number < plan.Total' in macro_menu_ui
     and 'Macros allow you to automate processes like fishing and training.' in macro_menu_ui
-    and 'No macros were found' in macro_menu_ui
+    and '"No macros were found."' in macro_menu_ui
     and 'FitMacroViewport(offset, pitch, upload)' in macro_menu_ui
     and 'position <= plan.Count && index <= count' in macro_menu_ui
     and 'Loop pagePlan.Count' in macro_menu_ui

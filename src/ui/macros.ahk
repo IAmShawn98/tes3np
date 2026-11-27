@@ -16,7 +16,7 @@ BuildMacroBookPanel()
     explanation := CharacterPage.Add("Text", "x525 y87 w355 h48 BackgroundTrans",
         "Macros allow you to automate processes like fishing and training. The launcher contains some pre-built macros right out of the box for you to use right away. If you'd like, you can also write your own macros and upload them here for daily use.")
     MacroEmptyNotice := CharacterPage.Add("Text", "x525 y150 w355 h28 BackgroundTrans",
-        "No macros were found")
+        "No macros were found.")
     ; The hidden ListView retains every imported item and all existing handlers.
     ; Four reusable rows per page, not a limit on the number of macros.
     MacroList := CharacterPage.Add("ListView", "x525 y144 w355 h226 Hidden -Multi",

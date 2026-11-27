@@ -156,7 +156,8 @@ def character_book_left_column(
         ))
     else:
         items.extend((
-            TextBlock("add-character", action_height, action_height, minimum_top=164, gap_after=5),
+            TextBlock("character-empty-notice", 28, 28, minimum_top=164, gap_after=10),
+            TextBlock("add-character", action_height, action_height, minimum_top=202, gap_after=5),
             TextBlock("import-data", action_height, action_height),
         ))
     return plan_vertical_stack(
@@ -430,7 +431,7 @@ def plan_character_macro_book(
     notice_top = max(429, last_left + 8) if show_limit_notice else 0
     notice_bottom = notice_top + 25 if show_limit_notice else 0
     left_action = (max(last_left + 8, notice_bottom + 8)
-                   if profile_count else max(164, paragraph_bottom + 3))
+                   if profile_count else left_first + 38)
     left_action_bottom = left_action + (30 if profile_count else 65)
 
     macro_text_bottom = 87 + max(48, macro_explanation_height)
@@ -465,6 +466,7 @@ def plan_character_macro_book(
     else:
         # With no characters, Import appears directly below Add and there is
         # no Wipe or Export in the footer.
+        placements.append(("character-empty-notice", Rect(70, left_first, 370, 28)))
         placements.append(("import-data", Rect(70, left_action + 35, 370, 30)))
     controls = tuple(placements)
     violations = []

@@ -908,7 +908,7 @@ CheckAccessibleLayoutPreflight()
         if NormalCharacterAddY(count, false) != 164 + count * 24 + 7
             throw Error("Add character did not follow the visible row count.")
     }
-    if NormalCharacterAddY(0, false) != 164 || NormalCharacterAddY(10, true) != 462
+    if NormalCharacterAddY(0, false) != 202 || NormalCharacterAddY(10, true) != 462
         throw Error("Empty or full character list Add anchor changed.")
     for count in [0, 1, 6, 10, 1, 0]
         if NormalCharacterAddWidth(count) != (count ? 120 : 370)
@@ -1369,7 +1369,7 @@ CheckMeasuredEmptyMacroBook()
                 copy := testPage.Add("Text", "x525 y87 w355 h48 +Wrap",
                     "Macros allow you to automate processes like fishing and training. The launcher contains some pre-built macros right out of the box for you to use right away. If you'd like, you can also write your own macros and upload them here for daily use.")
                 notice := testPage.Add("Text", "x525 y150 w355 h28 +Wrap",
-                    "No macros were found")
+                    "No macros were found.")
                 CharacterPage := testPage
                 MacroBookControls := [heading, copy]
                 MacroEmptyNotice := notice
