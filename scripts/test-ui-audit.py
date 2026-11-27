@@ -197,7 +197,7 @@ class InventoryCoverageTests(unittest.TestCase):
     def test_import_data_success_message(self):
         source = (SOURCE.parents[1] / "src/data/backup.ahk").read_text(
             encoding="utf-8-sig")
-        self.assertIn('MsgBox("Launcher data imported.", "Import Data", "Icon!")', source)
+        self.assertIn('MsgBox("Launcher data imported.", "Import Data", "Iconi")', source)
 
     def test_reset_character_list_warning_preserves_confirmation_gate(self):
         source = (SOURCE.parents[1] / "src/ui/characters.ahk").read_text(
