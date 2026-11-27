@@ -186,6 +186,21 @@ class InventoryCoverageTests(unittest.TestCase):
         self.assertIn("drawFlags := 0x0810 ; DT_NOPREFIX | DT_WORDBREAK", renderer)
         self.assertIn("if cachedTextChanged", characters)
 
+    def test_reset_character_list_warning_preserves_confirmation_gate(self):
+        source = (SOURCE.parents[1] / "src/ui/characters.ahk").read_text(
+            encoding="utf-8-sig")
+        reset = source[source.index("WipeCharacterData(*)\n{"):]
+        expected = (
+            "This action will remove all registered characters from the launcher. Doing so will revoke auto logins until you add at least one character to the list.`n`n"
+            "Resetting your character list will NOT delete your actual in-game characters, only their launcher registration.`n`n"
+            "You can export your character list to save it for later if you want.`n`n"
+            "Are you sure you want to reset your character list?"
+        )
+        confirmation = 'if MsgBox("' + expected + '", "Reset Character List", 0x124) != "Yes"'
+        self.assertIn(confirmation + "\n        return", reset)
+        self.assertLess(reset.index(confirmation), reset.index("StopGameRecovery()"))
+        self.assertLess(reset.index(confirmation), reset.index("Profiles := []"))
+
     def test_editor_uses_measured_stack_and_right_column_ownership(self):
         root = SOURCE.parents[1] / "src/ui"
         characters = (root / "characters.ahk").read_text(encoding="utf-8-sig")
