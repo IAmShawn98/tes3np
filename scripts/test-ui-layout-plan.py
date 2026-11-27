@@ -47,6 +47,17 @@ class LayoutPlanningTest(unittest.TestCase):
                 self.assertEqual(dict((name, (top, bottom)) for name, top, bottom in simple.positions)["add-character"],
                                  (rect["add-character"].y, rect["add-character"].bottom))
 
+    def test_add_width_restores_across_empty_populated_transitions(self):
+        for count in (0, 1, 6, 10, 1, 0):
+            with self.subTest(count=count):
+                plan = layout.plan_character_macro_book(
+                    70, 40, 23, 62, 1920, 1080, profile_count=count)
+                self.assertTrue(plan.feasible, plan.violations)
+                rect = dict(plan.controls)
+                self.assertEqual(rect["add-character"].width, 120 if count else 370)
+                if not count:
+                    self.assertEqual(rect["add-character"].width, rect["import-data"].width)
+
     def test_large_paragraph_rejects_unsafe_10_row_plan(self):
         result = layout.character_book_left_column(measured_paragraph_height=220)
         self.assertFalse(result.feasible)
@@ -238,7 +249,7 @@ class LayoutPlanningTest(unittest.TestCase):
             70, 40, 23, 62, 1920, 1080, profile_count=0, macro_count=0)
         self.assertTrue(plan.feasible, plan.violations)
         positions = dict(layout.expand_book_control_positions(plan))
-        self.assertEqual(positions["add-character"], layout.Rect(70, 164, 120, 30))
+        self.assertEqual(positions["add-character"], layout.Rect(70, 164, 370, 30))
         self.assertEqual(positions["import-data"], layout.Rect(70, 199, 370, 30))
         self.assertNotIn("footer-left", positions)
         self.assertNotIn("footer-right", positions)

@@ -448,7 +448,7 @@ def plan_character_macro_book(
         ("description", Rect(70, 80, 390, max(81, paragraph_height))),
         ("character-rows", Rect(70, left_first, 370,
              max(0, last_left - left_first))),
-        ("add-character", Rect(70, left_action, 120, 30)),
+        ("add-character", Rect(70, left_action, 120 if profile_count else 370, 30)),
         ("macro-explanation", Rect(525, 87, 355, max(48, macro_explanation_height))),
         ("macro-rows", Rect(525, macro_first, 355,
              max(0, macro_last - macro_first))),

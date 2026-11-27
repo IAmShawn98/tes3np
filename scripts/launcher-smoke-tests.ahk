@@ -910,6 +910,9 @@ CheckAccessibleLayoutPreflight()
     }
     if NormalCharacterAddY(0, false) != 164 || NormalCharacterAddY(10, true) != 462
         throw Error("Empty or full character list Add anchor changed.")
+    for count in [0, 1, 6, 10, 1, 0]
+        if NormalCharacterAddWidth(count) != (count ? 120 : 370)
+            throw Error("Add character width did not follow the empty/populated state.")
     enlarged := PlanAccessibleVerticalStack([
         {Id: "full-description", Height: 220, GapAfter: 3}, rows, add, export, reset], 80, 605)
     if enlarged.Feasible || enlarged.Overflow <= 0

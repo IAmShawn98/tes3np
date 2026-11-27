@@ -396,6 +396,9 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'y := 164 + (index - 1) * 24' in character_ui
             and 'actionY := NormalCharacterAddY(Profiles.Length, Profiles.Length >= MaxCharacters)' in character_ui
             and '164 + Min(count, 10) * 24 + 7' in character_ui
+            and 'return count ? 120 : 370' in character_ui
+            and 'NormalCharacterAddWidth(Profiles.Length), 30)' in character_ui
+            and 'AddCharacterButton := AddStyledButton(CharacterPage, 70, 164, 370, 30,' in character_ui
             and 'transferY := footerY - 5 - footer.TransferHeight' in character_ui
             and 'addY := rowY + (noticeVisible ? noticeHeight + 8 : 0)' in character_ui
             and 'MoveMeasuredBookAction(AddCharacterButton, 70, addY, footer.AddWidth, footer.AddHeight)' in character_ui

@@ -85,6 +85,11 @@ NormalCharacterAddY(count, limitReached)
     return count ? Max(164 + Min(count, 10) * 24 + 7, limitReached ? 462 : 0) : 164
 }
 
+NormalCharacterAddWidth(count)
+{
+    return count ? 120 : 370
+}
+
 PositionNormalCharacterAdd()
 {
     global Profiles, MaxCharacters, AddCharacterButton, ButtonFaces
@@ -93,7 +98,8 @@ PositionNormalCharacterAdd()
     if ButtonFaces.Has(AddCharacterButton.Hwnd)
         ButtonFaces[AddCharacterButton.Hwnd].NoAccessibleDownfit := false
     MoveStyledButton(AddCharacterButton, 70,
-        NormalCharacterAddY(Profiles.Length, Profiles.Length >= MaxCharacters), 120, 30)
+        NormalCharacterAddY(Profiles.Length, Profiles.Length >= MaxCharacters),
+        NormalCharacterAddWidth(Profiles.Length), 30)
 }
 
 MoveMeasuredBookAction(control, x, y, width, height)
@@ -307,7 +313,7 @@ OpenCharacterPage(*)
     ; Retain a hidden heading for the character editor.
     LaunchSettingsHeading := CharacterPage.Add("Text", "x525 y45 w360 h30 Center BackgroundTrans Hidden", "")
     SetAccessibleTextFont(CharacterPage, "s12 Norm c241408", LauncherMorrowindFont)
-    AddCharacterButton := AddStyledButton(CharacterPage, 70, 164, 120, 30, "Add character", (*) => EditProfile(0))
+    AddCharacterButton := AddStyledButton(CharacterPage, 70, 164, 370, 30, "Add character", (*) => EditProfile(0))
     ; The approved copy fits in a compact description block. Do not leave
     ; a full extra paragraph of empty control space above the first row.
     SetAccessibleTextFont(CharacterPage, "s11 Norm c241408", LauncherMorrowindFont)
@@ -413,7 +419,8 @@ RefreshProfiles()
         ; book's unchanged parchment/footers can contain them. The populated
         ; ten-row state needs its own all-control transaction.
         actionY := NormalCharacterAddY(Profiles.Length, Profiles.Length >= MaxCharacters)
-        addMetrics := BookActionMetrics(AddCharacterButton, "Add character", 120, 30)
+        addMetrics := BookActionMetrics(AddCharacterButton, "Add character",
+            NormalCharacterAddWidth(Profiles.Length), 30)
         importMetrics := BookActionMetrics(DataTransferButton, "Import Data", 370, 30)
         transferMetrics := Profiles.Length
             ? BookActionMetrics(DataTransferButton, "Export Character List", 370, 30) : importMetrics
